@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            system: x86_64-linux
+          - os: macos-13
+            system: x86_64-darwin
+          - os: macos-14
+            system: aarch64-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: herdr
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - run: nix build .#default --print-build-logs
+
+      - run: nix run .#default -- --version
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: DeterminateSystems/nix-installer-action@main
+      - run: nix run nixpkgs#devenv -- test --override-dotfile
+
+  eval-aarch64-linux:
+    # No native aarch64-linux runner; at least catch flake-eval and
+    # hash-format errors for that system without building it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: DeterminateSystems/nix-installer-action@main
+      - run: nix eval .#packages.aarch64-linux.default.drvPath

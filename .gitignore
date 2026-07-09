@@ -1,0 +1,7 @@
+result
+result-*
+.direnv/
+.envrc.local
+.devenv/
+.devenv.flake.nix
+devenv.local.nix
