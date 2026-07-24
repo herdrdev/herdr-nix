@@ -81,7 +81,7 @@ To pull from the cache instead of building, add the substituter to your user/sys
 
 ```
 extra-substituters = https://herdr.cachix.org
-extra-trusted-public-keys = herdr.cachix.org-1:<public-key>
+extra-trusted-public-keys = herdr.cachix.org-1:3nH7IStRsS0ASfdonA0DCRR2ZrSCeWitZ7Kwew0cR4I=
 ```
 
 Or, if you're consuming this as a flake input and have `accept-flake-config = true` set
@@ -92,12 +92,17 @@ consumers of *your* flake pick it up too:
 {
   nixConfig = {
     extra-substituters = [ "https://herdr.cachix.org" ];
-    extra-trusted-public-keys = [ "herdr.cachix.org-1:<public-key>" ];
+    extra-trusted-public-keys = [ "herdr.cachix.org-1:3nH7IStRsS0ASfdonA0DCRR2ZrSCeWitZ7Kwew0cR4I=" ];
   };
 }
 ```
 
-Either way, get the current public key with `cachix use herdr`.
+To verify that key against the cache itself, run `cachix use herdr` (it writes the same
+substituter and key into your `nix.conf`), or read it straight from the API:
+
+```sh
+curl -s https://cachix.org/api/v1/cache/herdr
+```
 
 ## Configuration / API
 
