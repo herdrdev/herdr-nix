@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch: {}
 
 jobs:
   build:
@@ -12,15 +13,31 @@ jobs:
         include:
           - os: ubuntu-latest
             system: x86_64-linux
-          - os: macos-13
+          - os: ubuntu-24.04-arm
+            system: aarch64-linux
+          # macos-15-intel is the replacement Intel label after macos-13 went
+          # fully unsupported (actions/runner-images#13046) and the last x86_64
+          # image Actions offers, through August 2027.
+          - os: macos-15-intel
             system: x86_64-darwin
-          - os: macos-14
+          # macos-14 began deprecation 2026-07-06 and fails during brownouts
+          # from October (actions/runner-images#13518).
+          - os: macos-15
             system: aarch64-darwin
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
 
+      # nix-installer-action refuses Intel macOS and only continues by
+      # auto-pinning itself to its last Intel-capable release, which it labels
+      # a temporary fallback. Use the classic installer there instead.
+      - uses: cachix/install-nix-action@v31
+        if: matrix.system == 'x86_64-darwin'
+        with:
+          extra_nix_config: experimental-features = nix-command flakes
+
       - uses: DeterminateSystems/nix-installer-action@main
+        if: matrix.system != 'x86_64-darwin'
 
       - uses: cachix/cachix-action@v15
         with:
@@ -35,14 +52,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: DeterminateSystems/nix-installer-action@main
-      - run: nix run nixpkgs#devenv -- test --override-dotfile
 
-  eval-aarch64-linux:
-    # No native aarch64-linux runner; at least catch flake-eval and
-    # hash-format errors for that system without building it.
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
+      # Determinate Nix enables lazy-trees; under it devenv's shell eval walks
+      # into nixpkgs' minimal-bootstrap chain and dies on
+      # `path '/nix/store/...-ldexpl.c' is not valid`.
       - uses: DeterminateSystems/nix-installer-action@main
-      - run: nix eval .#packages.aarch64-linux.default.drvPath
+        with:
+          extra-conf: lazy-trees = false
+
+      - run: nix run nixpkgs#devenv -- test --override-dotfile
