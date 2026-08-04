@@ -22,29 +22,29 @@ teardown() {
 
 fake_gh_latest() {
   cat > "$FAKE_BIN/gh" <<EOF
-#!/usr/bin/env bash
+#!$BASH
 echo "v$1"
 EOF
   chmod +x "$FAKE_BIN/gh"
 }
 
 fake_gh_empty() {
-  cat > "$FAKE_BIN/gh" <<'EOF'
-#!/usr/bin/env bash
+  cat > "$FAKE_BIN/gh" <<EOF
+#!$BASH
 echo ""
 EOF
   chmod +x "$FAKE_BIN/gh"
 }
 
 fake_prefetch_tools() {
-  cat > "$FAKE_BIN/nix-prefetch-url" <<'EOF'
-#!/usr/bin/env bash
+  cat > "$FAKE_BIN/nix-prefetch-url" <<EOF
+#!$BASH
 echo "0000000000000000000000000000000000000000000000000000"
 EOF
   chmod +x "$FAKE_BIN/nix-prefetch-url"
 
-  cat > "$FAKE_BIN/nix" <<'EOF'
-#!/usr/bin/env bash
+  cat > "$FAKE_BIN/nix" <<EOF
+#!$BASH
 echo "sha256-FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFA0="
 EOF
   chmod +x "$FAKE_BIN/nix"
@@ -53,7 +53,7 @@ EOF
 @test "already at latest stable version: leaves package.nix untouched, exits 0" {
   fake_gh_latest "$CURRENT_VERSION"
 
-  run bash -c "cd '$TEST_DIR' && ./update.sh"
+  run bash -c "cd '$TEST_DIR' && bash ./update.sh"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"already at latest stable version ($CURRENT_VERSION)"* ]]
@@ -64,7 +64,7 @@ EOF
   fake_gh_latest "9.9.9"
   fake_prefetch_tools
 
-  run bash -c "cd '$TEST_DIR' && ./update.sh"
+  run bash -c "cd '$TEST_DIR' && bash ./update.sh"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"bumping herdr $CURRENT_VERSION -> 9.9.9"* ]]
@@ -79,7 +79,7 @@ EOF
 @test "gh returns no release: fails with a clear error, leaves package.nix untouched" {
   fake_gh_empty
 
-  run bash -c "cd '$TEST_DIR' && ./update.sh"
+  run bash -c "cd '$TEST_DIR' && bash ./update.sh"
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"could not determine latest stable herdr release"* ]]
