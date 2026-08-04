@@ -1,63 +1,65 @@
 name: ci
 
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
+    name: build (${{ matrix.os }}, ${{ matrix.system }})
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             system: x86_64-linux
           - os: ubuntu-24.04-arm
             system: aarch64-linux
-          # macos-15-intel is the replacement Intel label after macos-13 went
-          # fully unsupported (actions/runner-images#13046) and the last x86_64
-          # image Actions offers, through August 2027.
+          # GitHub supports this final Intel macOS image through August 2027.
           - os: macos-15-intel
             system: x86_64-darwin
-          # macos-14 began deprecation 2026-07-06 and fails during brownouts
-          # from October (actions/runner-images#13518).
           - os: macos-15
             system: aarch64-darwin
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      # nix-installer-action refuses Intel macOS and only continues by
-      # auto-pinning itself to its last Intel-capable release, which it labels
-      # a temporary fallback. Use the classic installer there instead.
-      - uses: cachix/install-nix-action@v31
+      # Determinate's installer does not support Intel macOS.
+      - uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31.11.0
         if: matrix.system == 'x86_64-darwin'
         with:
           extra_nix_config: experimental-features = nix-command flakes
 
-      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
         if: matrix.system != 'x86_64-darwin'
 
-      - uses: cachix/cachix-action@v15
-        with:
-          name: herdr
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-
       - run: nix build .#default --print-build-logs
-
       - run: nix run .#default -- --version
 
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - run: nix build .#checks.x86_64-linux.scripts --print-build-logs
 
-      # Determinate Nix enables lazy-trees; under it devenv's shell eval walks
-      # into nixpkgs' minimal-bootstrap chain and dies on
-      # `path '/nix/store/...-ldexpl.c' is not valid`.
-      - uses: DeterminateSystems/nix-installer-action@main
-        with:
-          extra-conf: lazy-trees = false
-
-      - run: nix run nixpkgs#devenv -- test --override-dotfile
+  required:
+    name: ci-required
+    if: always()
+    needs: [build, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify required jobs
+        env:
+          BUILD_RESULT: ${{ needs.build.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+        run: |
+          test "$BUILD_RESULT" = success
+          test "$TEST_RESULT" = success

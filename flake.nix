@@ -1,5 +1,5 @@
 {
-  description = "Unofficial Nix packaging for herdr, fetched from upstream GitHub Releases (no from-source build)";
+  description = "Official Nix packaging for Herdr release binaries";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -25,7 +25,23 @@
           program = "${herdr}/bin/herdr";
         };
 
-        checks.herdr = herdr;
+        checks = {
+          inherit herdr;
+          scripts = pkgs.runCommand "herdr-nix-scripts" {
+            nativeBuildInputs = [
+              pkgs.bats
+              pkgs.python3
+              pkgs.shellcheck
+            ];
+          } ''
+            cp -R ${./.} source
+            chmod -R u+w source
+            cd source
+            shellcheck update.sh
+            bats tests
+            touch "$out"
+          '';
+        };
       }
     );
 }

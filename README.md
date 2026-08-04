@@ -1,6 +1,6 @@
 # herdr-nix
 
-Unofficial Nix packaging for herdr, fetched from upstream GitHub Releases (no from-source build)
+Official Nix packaging for Herdr's prebuilt GitHub Release binaries.
 
 ## Contents
 
@@ -9,13 +9,13 @@ Unofficial Nix packaging for herdr, fetched from upstream GitHub Releases (no fr
 - [Configuration / API](#configuration--api)
 - [Staying current](#staying-current)
 - [Contributing](#contributing)
-- [Provenance and handover intent](#provenance-and-handover-intent)
+- [Provenance](#provenance)
 - [Licensing](#licensing)
 
 ## Why this exists
 
 herdr's own [documented Nix install instructions](https://herdr.dev/docs/install/#install-with-nix)
-point at its flake (`nix run|build|profile install github:ogulcancelik/herdr/vX.Y.Z`) — which
+point at its source flake (`nix run|build|profile install github:herdrdev/herdr/vX.Y.Z`) — which
 builds herdr from source, pulling in the full Rust + Zig toolchain, on every install and every
 update. There's no binary cache behind it, so that source build repeats for every consumer,
 every time. That's especially unwelcome in a devenv context, where the shell can rebuild often.
@@ -25,11 +25,8 @@ This repo instead fetches herdr's own prebuilt, per-platform release binaries
 published by herdr's own `release.yml` on every tagged release) and wraps them in a Nix
 derivation. No compilation, no toolchain, just a hash-verified download.
 
-Built binaries are pushed to a Cachix cache (`herdr`) so downstream consumers never build
-locally at all — `nix build`/`devenv shell` just pulls the substitute. Pushing happens
-continuously from two workflows: every `ci.yml` run on `main`/PRs, and the daily
-`update-check.yml` run — so a newly detected herdr release is already cached before its
-version-bump PR is even reviewed.
+After a version update passes review and CI, builds from protected `main` are pushed to the
+public Cachix cache (`herdr`). Pull requests never receive cache credentials.
 
 ## Usage
 
@@ -42,7 +39,7 @@ substituter and trusted public key for you, no manual `nix.conf` editing:
 # devenv.yaml
 inputs:
   herdr-nix:
-    url: github:tburny/herdr-nix
+    url: github:herdrdev/herdr-nix
 ```
 
 ```nix
@@ -64,7 +61,7 @@ inputs:
 
 ```nix
 {
-  inputs.herdr-nix.url = "github:tburny/herdr-nix";
+  inputs.herdr-nix.url = "github:herdrdev/herdr-nix";
   # ...
   # inputs.herdr-nix.packages.${system}.default
 }
@@ -73,7 +70,7 @@ inputs:
 Or run it directly without adding an input:
 
 ```sh
-nix run github:tburny/herdr-nix
+nix run github:herdrdev/herdr-nix
 ```
 
 To pull from the cache instead of building, add the substituter to your user/system
@@ -138,24 +135,19 @@ nix flake check
 
 ## Contributing
 
-There's no `CONTRIBUTING.md` yet — for now, issues and PRs are welcome directly on this repo,
-particularly reports of upstream release-asset renames or a herdr version that breaks
-`update.sh`'s detection. See [Provenance and handover intent](#provenance-and-handover-intent)
-below if you're a herdr maintainer.
+Issues and PRs are welcome, particularly reports of upstream release-asset changes or a Herdr
+version that breaks `update.sh`'s detection.
 
-## Provenance and handover intent
+## Provenance
 
-This repo was created by [@tburny](https://github.com/tburny) to solve a personal binary-cache
-problem across several downstream projects. It's deliberately self-contained (own repo, own
-Cachix cache, own CI) so it can be handed over to or adopted by the herdr maintainers
-(`ogulcancelik`) once it's proven out, rather than staying a permanent third-party dependency.
-If you're a herdr maintainer reading this and want to fold packaging in-tree, please open an
-issue — happy to transfer.
+[@tburny](https://github.com/tburny) created this packaging and transferred it to the Herdr
+project in 2026. It remains a separate repository because it packages release binaries rather
+than building Herdr from source.
 
 ## Licensing
 
 This repo's own packaging code (`flake.nix`, `package.nix`, `update.sh`, CI) is MIT-licensed
 — see [`LICENSE`](LICENSE). The herdr binaries this repo fetches and distributes are themselves
 licensed under AGPL-3.0-or-later by their upstream project; see
-[herdr's LICENSE](https://github.com/ogulcancelik/herdr/blob/main/LICENSE) for the terms that
+[Herdr's LICENSE](https://github.com/herdrdev/herdr/blob/master/LICENSE) for the terms that
 apply to the binary itself.

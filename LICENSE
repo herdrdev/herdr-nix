@@ -26,4 +26,4 @@ This license applies to the packaging code in this repository only
 (flake.nix, package.nix, update.sh, CI configuration, and documentation).
 The herdr binaries fetched and distributed by this packaging are themselves
 licensed under AGPL-3.0-or-later by the upstream herdr project — see
-https://github.com/ogulcancelik/herdr/blob/main/LICENSE.
+https://github.com/herdrdev/herdr/blob/master/LICENSE.

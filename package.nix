@@ -39,7 +39,7 @@ stdenvNoCC.mkDerivation {
   inherit version;
 
   src = fetchurl {
-    url = "https://github.com/ogulcancelik/herdr/releases/download/v${version}/${asset.name}";
+    url = "https://github.com/herdrdev/herdr/releases/download/v${version}/${asset.name}";
     inherit (asset) hash;
   };
 
@@ -53,8 +53,8 @@ stdenvNoCC.mkDerivation {
   '';
 
   meta = {
-    description = "Terminal-native agent multiplexer (unofficial packaging, prebuilt upstream release binary)";
-    homepage = "https://github.com/ogulcancelik/herdr";
+    description = "Terminal-native agent runtime packaged from official release binaries";
+    homepage = "https://github.com/herdrdev/herdr";
     # herdr itself is dual-licensed; the open-source track is AGPL-3.0-or-later.
     # This packaging repo's own code is MIT (see LICENSE) — see README for the distinction.
     license = lib.licenses.agpl3Plus;

@@ -6,37 +6,40 @@ on:
   workflow_dispatch: {}
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
+
+concurrency:
+  group: update-check
+  cancel-in-progress: false
 
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
 
-      - uses: DeterminateSystems/nix-installer-action@main
-
-      - uses: cachix/cachix-action@v15
-        with:
-          name: herdr
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-
-      - name: Run update.sh
+      - name: Check for a stable Herdr release
         env:
           GH_TOKEN: ${{ github.token }}
         run: ./update.sh
 
-      - name: Verify flake still evaluates and builds
-        run: nix build .#default --print-build-logs
-
-      - uses: peter-evans/create-pull-request@v7
+      - id: pull-request
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7.0.11
         with:
           commit-message: "chore(package): bump herdr to latest stable release"
           title: "chore(package): bump herdr to latest stable release"
           body: |
-            Automated bump by the `update-check` workflow — new stable herdr
-            release detected, hashes recomputed and verified with a fresh
-            `nix build`.
+            Automated stable Herdr release bump with recomputed asset hashes.
           branch: bot/update-herdr
           delete-branch: true
+
+      # GITHUB_TOKEN-created PRs do not emit pull_request workflow events.
+      - name: Run CI for the updated branch
+        if: steps.pull-request.outputs.pull-request-operation == 'created' || steps.pull-request.outputs.pull-request-operation == 'updated'
+        env:
+          BRANCH: ${{ steps.pull-request.outputs.pull-request-branch }}
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --ref "$BRANCH"

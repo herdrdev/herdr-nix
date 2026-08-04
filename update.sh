@@ -5,7 +5,7 @@
 # `update-check` GitHub Actions workflow, which opens a PR with the diff.
 set -euo pipefail
 
-repo="ogulcancelik/herdr"
+repo="herdrdev/herdr"
 package_nix="$(dirname "$0")/package.nix"
 
 current_version=$(grep -m1 '^  version = ' "$package_nix" | sed -E 's/.*"([^"]+)".*/\1/')
