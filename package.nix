@@ -7,26 +7,26 @@
 }:
 
 let
-  version = "0.7.3";
+  version = "0.8.0";
 
   # Map Nix system -> upstream release asset name + content hash.
   # Regenerate with ./update.sh (see README) when bumping `version`.
   assets = {
     x86_64-linux = {
       name = "herdr-linux-x86_64";
-      hash = "sha256-BD70Psur2ihGXc/x7sMYRRgVDVZ7i48gzanGyIdwZB0=";
+      hash = "sha256-uHLqfkD6LLF+hXrJtisb8m23tAPGIvXS8/WzX26azSg=";
     };
     aarch64-linux = {
       name = "herdr-linux-aarch64";
-      hash = "sha256-6kkAlPLHw5CZhwhX0Axkxijve166GWffQlgDNFXuLLE=";
+      hash = "sha256-9kesZkaNnvvGQv5TT7KERo8K6mBkFgb8AI38DYKjyoc=";
     };
     x86_64-darwin = {
       name = "herdr-macos-x86_64";
-      hash = "sha256-m1810oOwh37toM9muh7x2VrkDzLoWKBNoAQfOiDfAnw=";
+      hash = "sha256-d8ta/WyPyqrzvCjkdOwBwgkzGtCAlOINf4qpsLt41kk=";
     };
     aarch64-darwin = {
       name = "herdr-macos-aarch64";
-      hash = "sha256-sxNFOS0ATsHxssgh4a1gEBn6g4X+HkxpMTIetYqSB3M=";
+      hash = "sha256-1Tqfk/zP38xVYyknv1EAL1rdCqeZC831CP+9hKxlgXg=";
     };
   };
 
