@@ -3,6 +3,13 @@ name: publish
 on:
   push:
     branches: [main]
+  workflow_dispatch: {}
+  workflow_call:
+    inputs:
+      revision:
+        description: Validated package commit to publish
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -13,6 +20,7 @@ concurrency:
 
 jobs:
   publish:
+    if: github.repository == 'herdrdev/herdr-nix' && github.ref == 'refs/heads/main'
     name: publish (${{ matrix.os }}, ${{ matrix.system }})
     environment: cachix
     strategy:
@@ -30,6 +38,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ inputs.revision || github.sha }}
+          persist-credentials: false
 
       - uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31.11.0
         if: matrix.system == 'x86_64-darwin'

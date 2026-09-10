@@ -25,8 +25,9 @@ This repo instead fetches herdr's own prebuilt, per-platform release binaries
 published by herdr's own `release.yml` on every tagged release) and wraps them in a Nix
 derivation. No compilation, no toolchain, just a hash-verified download.
 
-After a version update passes review and CI, builds from protected `main` are pushed to the
-public Cachix cache (`herdr`). Pull requests never receive cache credentials.
+Stable version updates are validated on all four platforms before being committed to
+`main` and published to the public Cachix cache (`herdr`). Only publishing jobs use the
+`cachix` environment credentials; preparation, validation, and pull requests do not.
 
 ## Usage
 
@@ -123,10 +124,31 @@ version.
 
 `update.sh` checks herdr's latest **stable** release (tagged `vX.Y.Z`; the frequent
 `preview-*` pre-releases are intentionally skipped) and rewrites `package.nix` with the new
-version and per-platform hashes. The `update-check` GitHub Actions workflow runs this daily
-and opens a PR when a new stable release is found — no manual hash-bumping needed.
+version and per-platform hashes. After publishing a stable release, Herdr triggers the
+`update-check` workflow here. It can also be run manually:
 
-Run it by hand:
+```sh
+gh workflow run update-check.yml --repo herdrdev/herdr-nix --ref main
+```
+
+The workflow prepares one package update, runs `nix flake check` and the binary on all four
+platforms, then commits the validated package directly to `main` and publishes that exact
+commit to Cachix. No PRs, approvals, or scheduled polling are involved in the update itself.
+If validation fails, `main` stays unchanged. If `main` advances during validation, the push
+is rejected rather than rebasing untested changes; rerun the updater. If there is no version
+change, the workflow does nothing.
+
+Cache publishing can be retried independently after a publishing failure:
+
+```sh
+gh workflow run publish.yml --repo herdrdev/herdr-nix --ref main
+```
+
+The Herdr-side trigger is non-blocking and uses a fine-grained token scoped to this
+repository's Actions write permission. This repository needs no write access to Herdr
+and does not need permission for Actions to create or approve PRs.
+
+To prepare and check an update locally:
 
 ```sh
 ./update.sh

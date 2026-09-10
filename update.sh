@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Checks the latest stable herdr release (skips `preview-*` pre-releases) and,
 # if newer than the pinned version in package.nix, rewrites the version and
-# per-platform hashes in place. Run manually, or via the scheduled
-# `update-check` GitHub Actions workflow, which opens a PR with the diff.
+# per-platform hashes in place. Run locally or through the `update-check`
+# workflow, which validates all platforms before committing and publishing.
 set -euo pipefail
 
 repo="herdrdev/herdr"

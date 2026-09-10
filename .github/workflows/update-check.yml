@@ -1,45 +1,114 @@
 name: update-check
 
 on:
-  schedule:
-    - cron: "17 6 * * *" # daily
   workflow_dispatch: {}
 
 permissions:
-  actions: write
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: update-check
   cancel-in-progress: false
 
 jobs:
-  check:
+  prepare:
+    if: github.repository == 'herdrdev/herdr-nix' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    outputs:
+      base: ${{ steps.update.outputs.base }}
+      changed: ${{ steps.update.outputs.changed }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
-
-      - name: Check for a stable Herdr release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: ./update.sh
-
-      - id: pull-request
-        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7.0.11
         with:
-          commit-message: "chore(package): bump herdr to latest stable release"
-          title: "chore(package): bump herdr to latest stable release"
-          body: |
-            Automated stable Herdr release bump with recomputed asset hashes.
-          branch: bot/update-herdr
-          delete-branch: true
-
-      # GITHUB_TOKEN-created PRs do not emit pull_request workflow events.
-      - name: Run CI for the updated branch
-        if: steps.pull-request.outputs.pull-request-operation == 'created' || steps.pull-request.outputs.pull-request-operation == 'updated'
+          ref: main
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - name: Prepare latest stable package
+        id: update
         env:
-          BRANCH: ${{ steps.pull-request.outputs.pull-request-branch }}
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run ci.yml --ref "$BRANCH"
+        run: |
+          echo "base=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          ./update.sh
+          if git diff --quiet -- package.nix; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: steps.update.outputs.changed == 'true'
+        with:
+          name: stable-package
+          path: package.nix
+          if-no-files-found: error
+          retention-days: 7
+
+  validate:
+    needs: prepare
+    if: needs.prepare.outputs.changed == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            system: x86_64-linux
+          - os: ubuntu-24.04-arm
+            system: aarch64-linux
+          - os: macos-15-intel
+            system: x86_64-darwin
+          - os: macos-15
+            system: aarch64-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ needs.prepare.outputs.base }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: stable-package
+      - uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31.11.0
+        if: matrix.system == 'x86_64-darwin'
+        with:
+          extra_nix_config: experimental-features = nix-command flakes
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+        if: matrix.system != 'x86_64-darwin'
+      - run: nix flake check --print-build-logs
+      - name: Verify packaged binary version
+        run: |
+          expected="herdr $(nix eval --raw .#default.version)"
+          actual="$(nix run .#default -- --version)"
+          echo "$actual"
+          test "$actual" = "$expected"
+
+  commit:
+    needs: [prepare, validate]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      revision: ${{ steps.commit.outputs.revision }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ needs.prepare.outputs.base }}
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: stable-package
+      - name: Commit validated package
+        id: commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package.nix
+          git commit -m 'chore(package): bump herdr to latest stable release'
+          # Refuse to overwrite or rebase over changes made while validation ran.
+          git push origin HEAD:refs/heads/main
+          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  # GITHUB_TOKEN pushes do not trigger the push-based publish workflow.
+  publish:
+    needs: commit
+    uses: ./.github/workflows/publish.yml
+    with:
+      revision: ${{ needs.commit.outputs.revision }}
