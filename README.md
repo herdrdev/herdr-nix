@@ -148,6 +148,12 @@ The Herdr-side trigger is non-blocking and uses a fine-grained token scoped to t
 repository's Actions write permission. This repository needs no write access to Herdr
 and does not need permission for Actions to create or approve PRs.
 
+The commit job uses the repository-only `NIX_UPDATE_DEPLOY_KEY` secret after validation.
+Its SSH push triggers the separate `publish` workflow. GitHub's deploy-key exception to
+the update and PR rules applies to all writable deploy keys in this repository, so keep
+only the updater's key installed. Deploy keys cannot bypass the separate force-push,
+deletion, or linear-history protections.
+
 To prepare and check an update locally:
 
 ```sh

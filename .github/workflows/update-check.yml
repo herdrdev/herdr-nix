@@ -84,19 +84,15 @@ jobs:
   commit:
     needs: [prepare, validate]
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    outputs:
-      revision: ${{ steps.commit.outputs.revision }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ needs.prepare.outputs.base }}
+          ssh-key: ${{ secrets.NIX_UPDATE_DEPLOY_KEY }}
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: stable-package
       - name: Commit validated package
-        id: commit
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -104,11 +100,3 @@ jobs:
           git commit -m 'chore(package): bump herdr to latest stable release'
           # Refuse to overwrite or rebase over changes made while validation ran.
           git push origin HEAD:refs/heads/main
-          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
-  # GITHUB_TOKEN pushes do not trigger the push-based publish workflow.
-  publish:
-    needs: commit
-    uses: ./.github/workflows/publish.yml
-    with:
-      revision: ${{ needs.commit.outputs.revision }}
