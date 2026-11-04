@@ -13,19 +13,30 @@
       let
         pkgs = import nixpkgs { inherit system; };
         herdr = pkgs.callPackage ./package.nix { };
+        # Only where upstream publishes a build (no herdr-app for x86_64-darwin).
+        released = pkgs.lib.filterAttrs (_: pkg: pkgs.lib.meta.availableOn pkgs.stdenv.hostPlatform pkg) {
+          herdr-core = pkgs.callPackage ./herdr-core.nix { };
+          herdr-app = pkgs.callPackage ./herdr-app.nix { };
+        };
       in
       {
-        packages = {
+        packages = released // {
           inherit herdr;
           default = herdr;
         };
 
-        apps.default = {
+        apps = {
+          default = {
+            type = "app";
+            program = "${herdr}/bin/herdr";
+          };
+        }
+        // pkgs.lib.mapAttrs (_: pkg: {
           type = "app";
-          program = "${herdr}/bin/herdr";
-        };
+          program = pkgs.lib.getExe pkg;
+        }) released;
 
-        checks = {
+        checks = released // {
           inherit herdr;
           scripts = pkgs.runCommand "herdr-nix-scripts" {
             nativeBuildInputs = [
