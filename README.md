@@ -25,6 +25,10 @@ This repo instead fetches herdr's own prebuilt, per-platform release binaries
 published by herdr's own `release.yml` on every tagged release) and wraps them in a Nix
 derivation. No compilation, no toolchain, just a hash-verified download.
 
+The same goes for herdr-core (`hc`) and the Herdr desktop app, from the tarballs that
+`releases.herdr.dev/core/latest.json` and `releases.herdr.dev/app/latest.json` list with
+their sha256.
+
 Stable version updates are validated on all four platforms before being committed to
 `main` and published to the public Cachix cache (`herdr`). Only publishing jobs use the
 `cachix` environment credentials; preparation, validation, and pull requests do not.
@@ -72,6 +76,7 @@ Or run it directly without adding an input:
 
 ```sh
 nix run github:herdrdev/herdr-nix
+nix profile install github:herdrdev/herdr-nix#herdr-core github:herdrdev/herdr-nix#herdr-app
 ```
 
 To pull from the cache instead of building, add the substituter to your user/system
@@ -113,6 +118,16 @@ picking a system. It exposes:
 | `packages.<system>.default` | derivation | Alias for `packages.<system>.herdr`. |
 | `apps.<system>.default` | app | `nix run` wrapper around `bin/herdr`. |
 | `checks.<system>.herdr` | derivation | Same build, exercised by `nix flake check`. |
+| `packages.<system>.herdr-core` | derivation | herdr-core, at `bin/herdr-core` and `bin/hc`; on macOS links into `Applications/Herdr Core.app`. |
+| `packages.<system>.herdr-app` | derivation | The desktop app, at `bin/herdr-app`; on macOS `Applications/Herdr.app`; on Linux with a desktop entry. Not built for `x86_64-darwin`. |
+| `apps.<system>.herdr-core`, `apps.<system>.herdr-app` | app | `nix run` wrappers. |
+
+Both are installed exactly as released: the Linux core is static and hc tells builds apart by
+their build id, and the macOS bundles keep their signatures (macOS privacy grants belong to
+`Herdr Core.app`). The app's dlopened libraries are on its RUNPATH rather than in a wrapper's
+environment, because the core passes its environment to every terminal. A core in the Nix
+store is never updated by `hc update` or the app; update it here. The app leaves a store
+install alone on Linux; on macOS that needs herdrdev/herdr-app#459.
 
 Supported `<system>`: `x86_64-linux`, `aarch64-linux`, `x86_64-darwin`, `aarch64-darwin` —
 matching herdr's own published release assets. The pinned `version` and per-asset hashes live
@@ -124,8 +139,10 @@ version.
 
 `update.sh` checks herdr's latest **stable** release (tagged `vX.Y.Z`; the frequent
 `preview-*` pre-releases are intentionally skipped) and rewrites `package.nix` with the new
-version and per-platform hashes. After publishing a stable release, Herdr triggers the
-`update-check` workflow here. It can also be run manually:
+version and per-platform hashes. It does the same for `herdr-core.nix` and `herdr-app.nix`
+from their `latest.json` manifests; `./update.sh herdr-core` updates just one. After
+publishing a stable release, Herdr triggers the `update-check` workflow here. It can also be
+run manually:
 
 ```sh
 gh workflow run update-check.yml --repo herdrdev/herdr-nix --ref main

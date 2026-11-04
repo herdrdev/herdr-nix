@@ -40,8 +40,13 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
         if: matrix.system != 'x86_64-darwin'
 
-      - run: nix build .#default --print-build-logs
+      - run: nix build .#default .#herdr-core --print-build-logs
+      - run: nix build .#herdr-app --print-build-logs
+        if: matrix.system != 'x86_64-darwin'
       - run: nix run .#default -- --version
+      - run: nix run .#herdr-core -- --version
+      - run: nix run .#herdr-app -- --version
+        if: matrix.system != 'x86_64-darwin'
 
   test:
     runs-on: ubuntu-latest
