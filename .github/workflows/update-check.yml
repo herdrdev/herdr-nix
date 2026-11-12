@@ -23,14 +23,14 @@ jobs:
           ref: main
           persist-credentials: false
       - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
-      - name: Prepare latest stable package
+      - name: Prepare latest stable packages
         id: update
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           echo "base=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           ./update.sh
-          if git diff --quiet -- package.nix; then
+          if git diff --quiet -- package.nix herdr-core.nix herdr-app.nix; then
             echo 'changed=false' >> "$GITHUB_OUTPUT"
           else
             echo 'changed=true' >> "$GITHUB_OUTPUT"
@@ -39,7 +39,10 @@ jobs:
         if: steps.update.outputs.changed == 'true'
         with:
           name: stable-package
-          path: package.nix
+          path: |
+            package.nix
+            herdr-core.nix
+            herdr-app.nix
           if-no-files-found: error
           retention-days: 7
 
@@ -74,12 +77,17 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
         if: matrix.system != 'x86_64-darwin'
       - run: nix flake check --print-build-logs
-      - name: Verify packaged binary version
+      - name: Verify packaged binary versions
         run: |
-          expected="herdr $(nix eval --raw .#default.version)"
-          actual="$(nix run .#default -- --version)"
-          echo "$actual"
-          test "$actual" = "$expected"
+          check() {
+            expected="$2 $(nix eval --raw ".#$1.version")"
+            actual="$(nix run ".#$1" -- --version)"
+            echo "$actual"
+            test "$actual" = "$expected"
+          }
+          check default herdr
+          check herdr-core hc
+          if [ "${{ matrix.system }}" != x86_64-darwin ]; then check herdr-app herdr-app; fi
 
   commit:
     needs: [prepare, validate]
@@ -96,7 +104,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add package.nix
-          git commit -m 'chore(package): bump herdr to latest stable release'
+          git add package.nix herdr-core.nix herdr-app.nix
+          git commit -m 'chore(package): bump to latest stable releases'
           # Refuse to overwrite or rebase over changes made while validation ran.
           git push origin HEAD:refs/heads/main
